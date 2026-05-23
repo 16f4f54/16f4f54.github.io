@@ -204,9 +204,8 @@ def session_exists() -> bool:
 def save_session(progress_callback: Optional[Callable[[str], None]] = None) -> dict:
     """
     Otwiera widoczną przeglądarkę i czeka aż użytkownik zaloguje się ręcznie.
-    Po wykryciu zalogowania zapisuje sesję do COOKIES_FILE.
-
-    Działa w osobnym wątku – callback raportuje postęp do web UI.
+    Używa persistent context + usuwa flagi automatyzacji, dzięki czemu
+    logowanie przez Google/Facebook działa bez blokad.
     """
     try:
         from playwright.sync_api import sync_playwright
@@ -214,32 +213,73 @@ def save_session(progress_callback: Optional[Callable[[str], None]] = None) -> d
         return {"success": False, "message": "Playwright nie jest zainstalowany."}
 
     cb = progress_callback
-    _log("Otwieram przeglądarkę – zaloguj się na Autoplac.pl...", cb)
+    profile_dir = Path(".browser_profile")
+    profile_dir.mkdir(exist_ok=True)
+
+    # Argumenty bez flag wykrywanych przez Google jako bot
+    launch_args = dict(
+        user_data_dir=str(profile_dir),
+        headless=False,
+        args=[
+            "--disable-blink-features=AutomationControlled",
+            "--disable-popup-blocking",   # pozwól na popup Google OAuth
+            "--no-default-browser-check",
+            "--no-first-run",
+        ],
+        ignore_default_args=["--enable-automation"],  # to powoduje "debugger wstrzymany"
+        locale="pl-PL",
+        viewport={"width": 1280, "height": 900},
+    )
 
     with sync_playwright() as pw:
-        browser, ctx = _make_context(pw, headless=False)
-        page = ctx.new_page()
+        # Próbuj kolejno: systemowy Chrome → Edge → Playwright Chromium
+        ctx = None
+        for channel in ["chrome", "msedge", None]:
+            try:
+                if channel:
+                    ctx = pw.chromium.launch_persistent_context(channel=channel, **launch_args)
+                    _log(f"Uruchomiono {channel}.", cb)
+                else:
+                    ctx = pw.chromium.launch_persistent_context(**launch_args)
+                    _log("Uruchomiono Chromium.", cb)
+                break
+            except Exception as e:
+                _log(f"Brak {channel or 'Chromium'} ({e}), próbuję dalej...", cb)
 
+        if not ctx:
+            return {"success": False, "message": "Nie można uruchomić żadnej przeglądarki."}
+
+        # Każda nowa karta/popup automatycznie wysuwa się na wierzch
+        ctx.on("page", lambda p: p.bring_to_front())
+
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.goto(AUTOPLAC_BASE_URL + LOGIN_URLS[0], wait_until="domcontentloaded", timeout=30_000)
-        _log("Przeglądarka otwarta. Zaloguj się – skrypt sam wykryje kiedy skończyłeś.", cb)
+        page.bring_to_front()
+        _log("Przeglądarka otwarta. Zaloguj się (e-mail, Google, itp.) – skrypt sam wykryje kiedy skończyłeś.", cb)
 
-        # Czekaj do 5 minut na zalogowanie
+        # Czekaj do 5 minut – sprawdzaj wszystkie otwarte karty
         for i in range(300):
             time.sleep(1)
-            if page.is_closed():
-                break
-            if _is_logged_in(page):
+            logged_in = False
+            for p in list(ctx.pages):
+                try:
+                    if AUTOPLAC_BASE_URL in p.url and _is_logged_in(p):
+                        logged_in = True
+                        break
+                except Exception:
+                    pass
+            if logged_in:
                 _log("Wykryto zalogowanie!", cb)
                 break
             if i > 0 and i % 30 == 0:
-                _log(f"Wciąż czekam... ({i}s). Zaloguj się w otwartej przeglądarce.", cb)
+                _log(f"Wciąż czekam... ({i}s). Zaloguj się w przeglądarce.", cb)
         else:
-            browser.close()
+            ctx.close()
             return {"success": False, "message": "Przekroczono limit czasu (5 min). Spróbuj ponownie."}
 
         ctx.storage_state(path=str(COOKIES_FILE))
-        browser.close()
-        _log(f"Sesja zapisana w {COOKIES_FILE}. Możesz teraz wystawiać ogłoszenia.", cb)
+        ctx.close()
+        _log("Sesja zapisana. Możesz teraz wystawiać ogłoszenia.", cb)
         return {"success": True, "message": "Sesja zapisana pomyślnie."}
 
 
