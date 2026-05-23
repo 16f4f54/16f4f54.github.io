@@ -120,6 +120,12 @@ def setup_progress(job_id: str):
     return render_template("progress.html", job_id=job_id, mode=mode, back_url=url_for("setup"))
 
 
+@app.route("/setup/confirm-login", methods=["POST"])
+def confirm_login():
+    ok = autoplac_poster.request_save()
+    return Response(json.dumps({"ok": ok}), mimetype="application/json")
+
+
 @app.route("/setup/delete", methods=["POST"])
 def setup_delete():
     """Usuwa zapisaną sesję."""

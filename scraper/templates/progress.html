@@ -65,9 +65,15 @@
   </h2>
   {% if mode == 'login' %}
   <p style="margin-top:0.6rem; font-size:0.88rem; color:#555;">
-    Okno przeglądarki Chromium powinno się teraz otworzyć.<br>
-    Zaloguj się w nim normalnie – skrypt sam wykryje kiedy skończyłeś.
+    Okno przeglądarki powinno się teraz otworzyć.<br>
+    Zaloguj się w nim, a potem kliknij przycisk poniżej.
   </p>
+  <button id="confirm-btn" onclick="confirmLogin()"
+          class="btn btn-primary"
+          style="margin-top:1rem; font-size:1rem; padding:0.7rem 2rem; opacity:0.5; cursor:not-allowed;"
+          disabled>
+    Czekam na otwarcie przeglądarki…
+  </button>
   {% endif %}
 </div>
 
@@ -192,6 +198,31 @@
         }
       })
       .catch(() => setTimeout(poll, 3000));
+  }
+
+  // Odblokuj przycisk po 3s (czas na otwarcie przeglądarki)
+  if (mode === 'login') {
+    setTimeout(() => {
+      const btn = document.getElementById('confirm-btn');
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        btn.textContent = 'Zalogowałem się ✓ – zapisz sesję';
+      }
+    }, 3000);
+  }
+
+  function confirmLogin() {
+    const btn = document.getElementById('confirm-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Zapisywanie…'; }
+    fetch('/setup/confirm-login', { method: 'POST' })
+      .then(r => r.json())
+      .then(d => {
+        if (!d.ok) {
+          if (btn) { btn.disabled = false; btn.textContent = 'Spróbuj ponownie'; }
+        }
+      });
   }
 
   function _errorCard(msg, back) {

@@ -14,6 +14,7 @@ Wskazówka: DevTools przeglądarki (F12 → Inspector) → kliknij pole → skop
 
 import json
 import logging
+import threading
 import time
 from pathlib import Path
 from typing import Callable, Optional
@@ -21,6 +22,18 @@ from typing import Callable, Optional
 from otomoto_scraper import CarListing
 
 logger = logging.getLogger(__name__)
+
+# Sygnał od Flask → save_session() żeby zapisać sesję na żądanie użytkownika
+_save_event: threading.Event | None = None
+
+
+def request_save() -> bool:
+    """Wywoływane przez Flask gdy użytkownik kliknie 'Zalogowałem się ✓'."""
+    global _save_event
+    if _save_event and not _save_event.is_set():
+        _save_event.set()
+        return True
+    return False
 
 COOKIES_FILE = Path(".autoplac_session.json")
 AUTOPLAC_BASE_URL = "https://www.autoplac.pl"
@@ -212,6 +225,8 @@ def save_session(progress_callback: Optional[Callable[[str], None]] = None) -> d
     except ImportError:
         return {"success": False, "message": "Playwright nie jest zainstalowany."}
 
+    global _save_event
+    _save_event = threading.Event()
     cb = progress_callback
     profile_dir = Path(".browser_profile")
     profile_dir.mkdir(exist_ok=True)
@@ -255,25 +270,36 @@ def save_session(progress_callback: Optional[Callable[[str], None]] = None) -> d
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.goto(AUTOPLAC_BASE_URL + LOGIN_URLS[0], wait_until="domcontentloaded", timeout=30_000)
         page.bring_to_front()
-        _log("Przeglądarka otwarta. Zaloguj się (e-mail, Google, itp.) – skrypt sam wykryje kiedy skończyłeś.", cb)
+        _log("Przeglądarka otwarta. Zaloguj się (e-mail, Google, itp.).", cb)
+        _log("Po zalogowaniu kliknij przycisk 'Zalogowałem się ✓' w aplikacji.", cb)
 
-        # Czekaj do 5 minut – sprawdzaj wszystkie otwarte karty
-        for i in range(300):
-            time.sleep(1)
-            logged_in = False
+        # Czekaj do 5 minut – ręczny przycisk LUB auto-detekcja
+        deadline = time.time() + 300
+        logged_in = False
+
+        while time.time() < deadline:
+            # 1. Ręczny sygnał od użytkownika (przycisk w web UI)
+            if _save_event and _save_event.wait(timeout=1):
+                _log("Zapisuję sesję na Twoje żądanie...", cb)
+                logged_in = True
+                break
+
+            # 2. Auto-detekcja (jako bonus, nie główna metoda)
             for p in list(ctx.pages):
                 try:
                     if AUTOPLAC_BASE_URL in p.url and _is_logged_in(p):
+                        _log("Auto-wykryto zalogowanie.", cb)
                         logged_in = True
                         break
                 except Exception:
                     pass
             if logged_in:
-                _log("Wykryto zalogowanie!", cb)
                 break
-            if i > 0 and i % 30 == 0:
-                _log(f"Wciąż czekam... ({i}s). Zaloguj się w przeglądarce.", cb)
-        else:
+
+        global _save_event
+        _save_event = None
+
+        if not logged_in:
             ctx.close()
             return {"success": False, "message": "Przekroczono limit czasu (5 min). Spróbuj ponownie."}
 
