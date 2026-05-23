@@ -201,7 +201,7 @@ def session_exists() -> bool:
     return COOKIES_FILE.exists()
 
 
-def save_session(callback: Optional[Callable[[str], None]] = None) -> dict:
+def save_session(progress_callback: Optional[Callable[[str], None]] = None) -> dict:
     """
     Otwiera widoczną przeglądarkę i czeka aż użytkownik zaloguje się ręcznie.
     Po wykryciu zalogowania zapisuje sesję do COOKIES_FILE.
@@ -213,14 +213,15 @@ def save_session(callback: Optional[Callable[[str], None]] = None) -> dict:
     except ImportError:
         return {"success": False, "message": "Playwright nie jest zainstalowany."}
 
-    _log("Otwieram przeglądarkę – zaloguj się na Autoplac.pl...", callback)
+    cb = progress_callback
+    _log("Otwieram przeglądarkę – zaloguj się na Autoplac.pl...", cb)
 
     with sync_playwright() as pw:
         browser, ctx = _make_context(pw, headless=False)
         page = ctx.new_page()
 
         page.goto(AUTOPLAC_BASE_URL + LOGIN_URLS[0], wait_until="domcontentloaded", timeout=30_000)
-        _log("Przeglądarka otwarta. Zaloguj się – skrypt sam wykryje kiedy skończyłeś.", callback)
+        _log("Przeglądarka otwarta. Zaloguj się – skrypt sam wykryje kiedy skończyłeś.", cb)
 
         # Czekaj do 5 minut na zalogowanie
         for i in range(300):
@@ -228,21 +229,21 @@ def save_session(callback: Optional[Callable[[str], None]] = None) -> dict:
             if page.is_closed():
                 break
             if _is_logged_in(page):
-                _log("Wykryto zalogowanie!", callback)
+                _log("Wykryto zalogowanie!", cb)
                 break
             if i > 0 and i % 30 == 0:
-                _log(f"Wciąż czekam... ({i}s). Zaloguj się w otwartej przeglądarce.", callback)
+                _log(f"Wciąż czekam... ({i}s). Zaloguj się w otwartej przeglądarce.", cb)
         else:
             browser.close()
             return {"success": False, "message": "Przekroczono limit czasu (5 min). Spróbuj ponownie."}
 
         ctx.storage_state(path=str(COOKIES_FILE))
         browser.close()
-        _log(f"Sesja zapisana w {COOKIES_FILE}. Możesz teraz wystawiać ogłoszenia.", callback)
+        _log(f"Sesja zapisana w {COOKIES_FILE}. Możesz teraz wystawiać ogłoszenia.", cb)
         return {"success": True, "message": "Sesja zapisana pomyślnie."}
 
 
-def discover_form(callback: Optional[Callable[[str], None]] = None) -> dict:
+def discover_form(progress_callback: Optional[Callable[[str], None]] = None) -> dict:
     """
     Wczytuje zapisaną sesję, wchodzi na formularz dodawania ogłoszenia
     i zwraca listę znalezionych pól. Służy do weryfikacji/aktualizacji SELECTORS.
@@ -255,7 +256,8 @@ def discover_form(callback: Optional[Callable[[str], None]] = None) -> dict:
     except ImportError:
         return {"success": False, "message": "Playwright nie jest zainstalowany.", "fields": []}
 
-    _log("Wczytuję sesję i szukam formularza...", callback)
+    cb = progress_callback
+    _log("Wczytuję sesję i szukam formularza...", cb)
 
     with sync_playwright() as pw:
         browser, ctx = _make_context(pw, headless=True)
@@ -291,7 +293,7 @@ def discover_form(callback: Optional[Callable[[str], None]] = None) -> dict:
                 "fields": [],
             }
 
-        _log(f"Formularz na: {form_url}", callback)
+        _log(f"Formularz na: {form_url}", cb)
 
         # Wyciągnij informacje o wszystkich polach
         fields = []
@@ -338,7 +340,7 @@ def discover_form(callback: Optional[Callable[[str], None]] = None) -> dict:
                 pass
 
         browser.close()
-        _log(f"Znaleziono {len(fields)} pól formularza.", callback)
+        _log(f"Znaleziono {len(fields)} pól formularza.", cb)
         return {"success": True, "fields": fields, "form_url": form_url}
 
 

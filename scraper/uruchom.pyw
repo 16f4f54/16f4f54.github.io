@@ -135,10 +135,17 @@ class Launcher(tk.Tk):
                 return
 
             self._ustaw_log("Pobieram przeglądarkę Chromium…")
+            # "chromium" = pełna wersja (potrzebna do headless=False, tj. widoczna przeglądarka przy logowaniu)
             ok = self._uruchom_cicho(
-                [sys.executable, "-m", "playwright", "install", "chromium"],
-                "playwright install"
+                [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
+                "playwright install chromium"
             )
+            if not ok:
+                # Spróbuj bez --with-deps (starsze wersje Playwright)
+                ok = self._uruchom_cicho(
+                    [sys.executable, "-m", "playwright", "install", "chromium"],
+                    "playwright install chromium (fallback)"
+                )
             if not ok:
                 return
 
