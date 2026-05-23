@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Połącz z Autoplac.pl{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Połączenie z Autoplac.pl</h2>
+  <p style="font-size:0.9rem; color:#555; margin-bottom:1.5rem;">
+    Skrypt nie przechowuje Twojego hasła. Zamiast tego raz się logujesz
+    w prawdziwej przeglądarce – sesja jest zapisywana lokalnie i używana
+    automatycznie przy każdym kolejnym ogłoszeniu.
+  </p>
+
+  {% if session_exists %}
+  <div class="alert alert-info" style="display:flex; align-items:center; gap:0.8rem;">
+    <span style="font-size:1.5rem;">✅</span>
+    <div>
+      <strong>Sesja jest aktywna.</strong><br>
+      <span style="font-size:0.85rem;">Możesz wystawiać ogłoszenia bez ponownego logowania.</span>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:1rem; margin-top:1.2rem; flex-wrap:wrap;">
+    <a href="/" class="btn btn-primary">Idź do strony głównej →</a>
+
+    <form method="POST" action="/setup/discover" style="display:inline;">
+      <button type="submit" class="btn btn-secondary">Sprawdź formularz Autoplac</button>
+    </form>
+
+    <form method="POST" action="/setup/delete"
+          onsubmit="return confirm('Na pewno usunąć zapisaną sesję?');"
+          style="display:inline;">
+      <button type="submit" class="btn" style="background:#ffeaea; color:#c0392b;">
+        Usuń sesję
+      </button>
+    </form>
+  </div>
+
+  {% else %}
+  <div class="alert alert-error" style="display:flex; align-items:center; gap:0.8rem;">
+    <span style="font-size:1.5rem;">⚠️</span>
+    <div>
+      <strong>Brak aktywnej sesji.</strong><br>
+      <span style="font-size:0.85rem;">Zaloguj się raz, żeby móc wystawiać ogłoszenia.</span>
+    </div>
+  </div>
+
+  <div style="margin-top:1.5rem;">
+    <h3 style="font-size:0.95rem; margin-bottom:0.8rem;">Jak to działa?</h3>
+    <ol style="padding-left:1.2rem; line-height:2.2; font-size:0.9rem; color:#555;">
+      <li>Kliknij przycisk poniżej</li>
+      <li>Otworzy się okno przeglądarki Chromium z Autoplac.pl</li>
+      <li>Zaloguj się normalnie (e-mail + hasło, ewentualnie 2FA)</li>
+      <li>Skrypt automatycznie wykryje logowanie i zapisze sesję</li>
+      <li>Możesz zamknąć tę przeglądarkę – sesja jest już zapisana</li>
+    </ol>
+  </div>
+
+  <form method="POST" action="/setup/login" style="margin-top:1rem;">
+    <button type="submit" class="btn btn-primary" style="font-size:1.05rem; padding:0.9rem 2rem;">
+      Otwórz przeglądarkę i zaloguj się →
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+{% if session_exists %}
+<div class="card" style="background:#fafafa; border:1px dashed #ddd; box-shadow:none;">
+  <h2 style="color:#888;">Sprawdź formularz</h2>
+  <p style="font-size:0.85rem; color:#666; margin-bottom:0.8rem;">
+    Kliknij "Sprawdź formularz Autoplac" powyżej, żeby zobaczyć jakie pola ma formularz na Autoplac.pl.
+    Jeśli któreś pole nie jest wypełniane automatycznie, zaktualizuj <code>SELECTORS</code>
+    w pliku <code>autoplac_poster.py</code>.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

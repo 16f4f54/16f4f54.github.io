@@ -121,26 +121,21 @@
     {% endif %}
   </div>
 
-  <!-- ── Dane logowania Autoplac ────────────────────────── -->
-  <div class="card">
-    <h2>Logowanie do Autoplac.pl</h2>
-    <p style="font-size:0.82rem; color:#888; margin-bottom:1rem;">
-      Hasło nie jest nigdzie zapisywane – używane tylko do jednorazowego wystawienia ogłoszenia.
+  <!-- ── Status sesji Autoplac ─────────────────────────── -->
+  {% if session_exists %}
+  <div class="card" style="border-left:4px solid #27ae60;">
+    <p style="font-size:0.9rem;">
+      ✅ <strong>Sesja Autoplac.pl aktywna</strong> – ogłoszenie zostanie wystawione automatycznie.
     </p>
-
-    <div class="grid-2">
-      <div class="field-group">
-        <label for="autoplac_email">E-mail (Autoplac.pl)</label>
-        <input type="email" id="autoplac_email" name="autoplac_email"
-               value="{{ autoplac_email }}" required autocomplete="username">
-      </div>
-      <div class="field-group">
-        <label for="autoplac_password">Hasło (Autoplac.pl)</label>
-        <input type="password" id="autoplac_password" name="autoplac_password"
-               required autocomplete="current-password">
-      </div>
-    </div>
   </div>
+  {% else %}
+  <div class="card" style="border-left:4px solid #e74c3c;">
+    <p style="font-size:0.9rem; color:#c0392b;">
+      ⚠️ Brak sesji Autoplac.pl.
+      <a href="/setup">Zaloguj się najpierw →</a>
+    </p>
+  </div>
+  {% endif %}
 
   <!-- ── Przyciski ──────────────────────────────────────── -->
   <div style="display:flex; gap:1rem; justify-content:flex-end; margin-bottom:2rem;">

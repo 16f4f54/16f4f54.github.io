@@ -1,5 +1,10 @@
 {% extends "base.html" %}
-{% block title %}OtoMoto → Autoplac – Wysyłanie…{% endblock %}
+{% block title %}
+  {% if mode == 'login' %}Logowanie do Autoplac.pl…
+  {% elif mode == 'discover' %}Sprawdzam formularz…
+  {% else %}OtoMoto → Autoplac – Wysyłanie…
+  {% endif %}
+{% endblock %}
 
 {% block head %}
 <style>
@@ -10,15 +15,15 @@
     font-size: 0.88rem;
     padding: 1.2rem;
     border-radius: 8px;
-    min-height: 200px;
-    max-height: 400px;
+    min-height: 160px;
+    max-height: 360px;
     overflow-y: auto;
-    line-height: 1.7;
+    line-height: 1.8;
     white-space: pre-wrap;
   }
   .spinner {
     display: inline-block;
-    width: 1.2rem; height: 1.2rem;
+    width: 1.1rem; height: 1.1rem;
     border: 3px solid #ddd;
     border-top-color: #e94560;
     border-radius: 50%;
@@ -27,50 +32,87 @@
     margin-right: 0.5rem;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  #status-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  .field-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+  .field-table th { background:#f0f0f0; padding:0.5rem 0.7rem; text-align:left; }
+  .field-table td { padding:0.45rem 0.7rem; border-bottom:1px solid #eee; font-family:monospace; }
+  .field-table tr:hover td { background:#fafafa; }
+  .badge-select { background:#e3f2fd; color:#1565c0; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.75rem; }
+  .badge-input  { background:#e8f5e9; color:#2e7d32; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.75rem; }
+  .badge-textarea { background:#fff3e0; color:#e65100; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.75rem; }
 </style>
 {% endblock %}
 
 {% block content %}
+{% if mode == 'post' %}
 <div class="step-bar">
   <div class="step done">1. Wklej link</div>
   <div class="step done">2. Sprawdź dane</div>
   <div class="step active">3. Wysyłanie</div>
 </div>
+{% endif %}
 
-<div class="card" style="text-align:center;">
-  <div id="status-icon">⏳</div>
+<div class="card" style="text-align:center;" id="status-card">
+  <div id="status-icon" style="font-size:2rem; margin-bottom:0.5rem;">⏳</div>
   <h2 id="status-text">
     <span class="spinner" id="spinner"></span>
-    Trwa wystawianie ogłoszenia na Autoplac.pl…
+    {% if mode == 'login' %}
+      Czekam na zalogowanie w przeglądarce…
+    {% elif mode == 'discover' %}
+      Sprawdzam formularz Autoplac.pl…
+    {% else %}
+      Trwa wystawianie ogłoszenia…
+    {% endif %}
   </h2>
-  <p style="font-size:0.85rem; color:#888; margin-top:0.5rem;">
-    Nie zamykaj okna – przeglądarka automatycznie wypełnia formularz.
+  {% if mode == 'login' %}
+  <p style="margin-top:0.6rem; font-size:0.88rem; color:#555;">
+    Okno przeglądarki Chromium powinno się teraz otworzyć.<br>
+    Zaloguj się w nim normalnie – skrypt sam wykryje kiedy skończyłeś.
   </p>
+  {% endif %}
 </div>
 
 <div class="card">
-  <h2>Log postępu</h2>
+  <h2>Log</h2>
   <div class="log-box" id="log"></div>
 </div>
 
 <div id="result-box" style="display:none;"></div>
+<div id="fields-box" style="display:none;"></div>
 
 <script>
-  const jobId = {{ job_id | tojson }};
-  const logEl = document.getElementById('log');
-  const statusEl = document.getElementById('status-text');
-  const iconEl = document.getElementById('status-icon');
+  const jobId  = {{ job_id | tojson }};
+  const mode   = {{ (mode or 'post') | tojson }};
+  const backUrl = {{ (back_url or '/') | tojson }};
+
+  const logEl     = document.getElementById('log');
+  const statusEl  = document.getElementById('status-text');
+  const iconEl    = document.getElementById('status-icon');
   const spinnerEl = document.getElementById('spinner');
   const resultBox = document.getElementById('result-box');
+  const fieldsBox = document.getElementById('fields-box');
 
   let lastLogCount = 0;
+
+  function renderFields(fields) {
+    if (!fields || !fields.length) return '<p>Nie znaleziono pól.</p>';
+    let html = '<table class="field-table"><thead><tr><th>Typ</th><th>name=</th><th>id=</th><th>placeholder</th></tr></thead><tbody>';
+    fields.forEach(f => {
+      const badge = f.tag === 'select'   ? '<span class="badge-select">select</span>'
+                  : f.tag === 'textarea' ? '<span class="badge-textarea">textarea</span>'
+                  :                        '<span class="badge-input">input[' + f.type + ']</span>';
+      html += `<tr><td>${badge}</td><td>${f.name||'–'}</td><td>${f.id||'–'}</td><td>${f.placeholder||'–'}</td></tr>`;
+      if (f.options && f.options.length) {
+        html += `<tr><td colspan="4" style="color:#888; padding-left:1.5rem; font-size:0.8rem;">Opcje: ${f.options.join(', ')}</td></tr>`;
+      }
+    });
+    html += '</tbody></table>';
+    return html;
+  }
 
   function poll() {
     fetch('/status/' + jobId)
       .then(r => r.json())
       .then(data => {
-        // Dopisz nowe linie logów
         const newLogs = data.logs.slice(lastLogCount);
         if (newLogs.length) {
           logEl.textContent += newLogs.join('\n') + '\n';
@@ -78,36 +120,86 @@
           logEl.scrollTop = logEl.scrollHeight;
         }
 
-        if (data.status === 'done' && data.result) {
-          spinnerEl.style.display = 'none';
-          const r = data.result;
+        if (data.status !== 'done') {
+          setTimeout(poll, 2000);
+          return;
+        }
+
+        spinnerEl.style.display = 'none';
+        const r = data.result || {};
+
+        if (mode === 'discover') {
           if (r.success) {
-            iconEl.textContent = '✅';
-            statusEl.textContent = 'Ogłoszenie wystawione pomyślnie!';
-            resultBox.style.display = 'block';
-            resultBox.innerHTML = `
-              <div class="card" style="border-left:4px solid #27ae60;">
-                <h2 style="color:#27ae60;">Sukces!</h2>
-                <p style="margin-top:0.5rem;">${r.message}</p>
-                ${r.url ? `<p style="margin-top:0.5rem;"><a href="${r.url}" target="_blank" class="btn btn-primary" style="margin-top:0.8rem;">Otwórz ogłoszenie →</a></p>` : ''}
-                <a href="/" class="btn btn-secondary" style="margin-top:0.8rem;">Dodaj kolejne</a>
+            iconEl.textContent = '🔍';
+            statusEl.textContent = 'Znalezione pola formularza';
+            fieldsBox.style.display = 'block';
+            fieldsBox.innerHTML = `
+              <div class="card">
+                <h2>Pola formularza na Autoplac.pl</h2>
+                <p style="font-size:0.82rem; color:#888; margin-bottom:0.8rem;">
+                  Jeśli pole nie jest wypełniane automatycznie, porównaj <code>name=</code> lub <code>id=</code>
+                  z wartościami w <code>SELECTORS</code> w pliku <code>autoplac_poster.py</code>.
+                </p>
+                ${renderFields(r.fields)}
+                <a href="${backUrl}" class="btn btn-secondary" style="margin-top:1rem;">← Wróć</a>
               </div>`;
           } else {
             iconEl.textContent = '❌';
-            statusEl.textContent = 'Wystąpił problem';
+            statusEl.textContent = 'Błąd';
+            resultBox.style.display = 'block';
+            resultBox.innerHTML = _errorCard(r.message, backUrl);
+          }
+          return;
+        }
+
+        if (mode === 'login') {
+          if (r.success) {
+            iconEl.textContent = '✅';
+            statusEl.textContent = 'Zalogowano pomyślnie!';
             resultBox.style.display = 'block';
             resultBox.innerHTML = `
-              <div class="card" style="border-left:4px solid #e74c3c;">
-                <h2 style="color:#e74c3c;">Problem</h2>
-                <p style="margin-top:0.5rem; white-space:pre-wrap;">${r.message}</p>
-                <a href="javascript:history.back()" class="btn btn-secondary" style="margin-top:1rem;">← Wróć i spróbuj ponownie</a>
+              <div class="card" style="border-left:4px solid #27ae60;">
+                <h2 style="color:#27ae60;">Sesja zapisana!</h2>
+                <p style="margin-top:0.5rem;">${r.message}</p>
+                <a href="/" class="btn btn-primary" style="margin-top:1rem;">Idź do strony głównej →</a>
               </div>`;
+          } else {
+            iconEl.textContent = '❌';
+            statusEl.textContent = 'Błąd logowania';
+            resultBox.style.display = 'block';
+            resultBox.innerHTML = _errorCard(r.message, backUrl);
           }
+          return;
+        }
+
+        // mode === 'post'
+        if (r.success) {
+          iconEl.textContent = '✅';
+          statusEl.textContent = 'Ogłoszenie wystawione!';
+          resultBox.style.display = 'block';
+          resultBox.innerHTML = `
+            <div class="card" style="border-left:4px solid #27ae60;">
+              <h2 style="color:#27ae60;">Gotowe!</h2>
+              <p style="margin-top:0.5rem;">${r.message}</p>
+              ${r.url ? `<a href="${r.url}" target="_blank" class="btn btn-primary" style="margin-top:0.8rem; margin-right:0.5rem;">Otwórz ogłoszenie →</a>` : ''}
+              <a href="/" class="btn btn-secondary" style="margin-top:0.8rem;">Dodaj kolejne</a>
+            </div>`;
         } else {
-          setTimeout(poll, 2000);
+          iconEl.textContent = '❌';
+          statusEl.textContent = 'Wystąpił problem';
+          resultBox.style.display = 'block';
+          resultBox.innerHTML = _errorCard(r.message, backUrl);
         }
       })
       .catch(() => setTimeout(poll, 3000));
+  }
+
+  function _errorCard(msg, back) {
+    return `<div class="card" style="border-left:4px solid #e74c3c;">
+      <h2 style="color:#e74c3c;">Problem</h2>
+      <p style="margin-top:0.5rem; white-space:pre-wrap;">${msg}</p>
+      <a href="${back}" class="btn btn-secondary" style="margin-top:1rem;">← Wróć</a>
+    </div>`;
   }
 
   poll();

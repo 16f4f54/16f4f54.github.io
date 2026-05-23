@@ -36,13 +36,23 @@ python app.py
 
 Następnie otwórz w przeglądarce: **http://localhost:5000**
 
-## Użycie krok po kroku
+## Pierwsze uruchomienie – jednorazowe logowanie
+
+Skrypt **nie przechowuje hasła**. Zamiast tego:
+
+1. Wejdź na http://localhost:5000/setup
+2. Kliknij **"Otwórz przeglądarkę i zaloguj się"**
+3. Zaloguj się normalnie na Autoplac.pl w otwartym oknie Chromium
+4. Skrypt wykryje logowanie i zapisze sesję do pliku `.autoplac_session.json`
+
+Sesja jest ważna zazwyczaj kilka tygodni. Gdy wygaśnie – powtórz krok 2-3.
+
+## Użycie krok po kroku (od drugiego razu)
 
 1. Wklej link do ogłoszenia z OtoMoto (np. `https://www.otomoto.pl/osobowe/oferta/ford-focus-...html`)
 2. Kliknij **Pobierz dane** – skrypt ściągnie wszystkie informacje i zdjęcia
 3. Sprawdź / popraw pobrane dane w formularzu
-4. Podaj hasło do konta na Autoplac.pl
-5. Kliknij **Wyślij na Autoplac.pl** – skrypt automatycznie wypełni formularz i wyśle ogłoszenie
+4. Kliknij **Wyślij na Autoplac.pl** – skrypt automatycznie wypełni formularz i wyśle ogłoszenie
 
 ## Rozwiązywanie problemów
 
