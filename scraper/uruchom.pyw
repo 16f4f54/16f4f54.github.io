@@ -155,23 +155,30 @@ class Launcher(tk.Tk):
         # ── Krok 2: uruchom serwer Flask ──────────────────────────────────
         self._ustaw_status("Uruchamiam serwer…", C_YELLOW)
 
+        log_file = SCRIPT_DIR / "flask_error.log"
         flagi = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         try:
+            log_handle = open(log_file, "w", encoding="utf-8")
             self._proc = subprocess.Popen(
                 [sys.executable, str(SCRIPT_DIR / "app.py")],
                 cwd=str(SCRIPT_DIR),
+                stdout=log_handle,
+                stderr=log_handle,
                 creationflags=flagi,
             )
         except Exception as e:
-            self._ustaw_status(f"Błąd: {e}", C_RED, C_RED)
+            self._ustaw_status(f"Błąd uruchomienia: {e}", C_RED, C_RED)
             return
 
         # ── Krok 3: czekaj aż serwer odpowie ─────────────────────────────
         for i in range(40):   # max 20 sekund
             time.sleep(0.5)
             if self._proc.poll() is not None:  # proces zakończył się sam
-                self._ustaw_status("Serwer zatrzymał się nieoczekiwanie", C_RED, C_RED)
-                self._ustaw_log("Sprawdź czy nie masz błędu w app.py")
+                log_handle.flush()
+                error_txt = self._czytaj_blad(log_file)
+                self._ustaw_status("Błąd startu serwera", C_RED, C_RED)
+                self._ustaw_log(error_txt)
+                self.after(0, lambda e=error_txt: self._pokaz_blad(e))
                 return
             try:
                 urllib.request.urlopen(APP_URL, timeout=1)
@@ -179,13 +186,35 @@ class Launcher(tk.Tk):
             except urllib.error.URLError:
                 pass
         else:
-            self._ustaw_status("Serwer nie odpowiada", C_RED, C_RED)
+            self._ustaw_status("Serwer nie odpowiada (timeout)", C_RED, C_RED)
             return
 
         # ── Gotowe ────────────────────────────────────────────────────────
         self._ustaw_status("Aplikacja działa", C_TEXT, C_GREEN)
         self.after(0, lambda: self._btn_open.config(state="normal"))
         webbrowser.open(APP_URL)
+
+    def _czytaj_blad(self, log_file: Path) -> str:
+        """Zwraca ostatnie linie logu błędu Flask (czytelny skrót)."""
+        try:
+            tekst = log_file.read_text(encoding="utf-8", errors="replace").strip()
+            if not tekst:
+                return "Brak szczegółów – sprawdź flask_error.log"
+            linie = tekst.splitlines()
+            # Ostatnie 6 linii zazwyczaj zawiera właściwy błąd
+            return "\n".join(linie[-6:])
+        except Exception:
+            return f"Nie można odczytać {log_file}"
+
+    def _pokaz_blad(self, blad: str) -> None:
+        """Otwiera okno z pełnym tekstem błędu + ścieżką do logu."""
+        import tkinter.messagebox as mb
+        mb.showerror(
+            "Błąd startu serwera",
+            f"Flask nie mógł się uruchomić.\n\n"
+            f"{blad}\n\n"
+            f"Pełny log: {SCRIPT_DIR / 'flask_error.log'}",
+        )
 
     def _uruchom_cicho(self, cmd: list, etykieta: str) -> bool:
         """Uruchamia komendę bez okna konsoli. Zwraca True jeśli OK."""
