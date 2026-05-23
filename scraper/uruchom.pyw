@@ -157,6 +157,8 @@ class Launcher(tk.Tk):
 
         log_file = SCRIPT_DIR / "flask_error.log"
         flagi = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        env = os.environ.copy()
+        env["PYTHONUTF8"] = "1"   # wymusza UTF-8 na Windows niezaleznie od codepage
         try:
             log_handle = open(log_file, "w", encoding="utf-8")
             self._proc = subprocess.Popen(
@@ -165,6 +167,7 @@ class Launcher(tk.Tk):
                 stdout=log_handle,
                 stderr=log_handle,
                 creationflags=flagi,
+                env=env,
             )
         except Exception as e:
             self._ustaw_status(f"Błąd uruchomienia: {e}", C_RED, C_RED)

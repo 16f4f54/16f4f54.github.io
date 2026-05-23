@@ -10,9 +10,17 @@ Następnie otwórz przeglądarkę: http://localhost:5000
 import json
 import logging
 import os
+import sys
 import threading
 import uuid
 from pathlib import Path
+
+# Windows: domyslny codepage (cp1250) nie obsluguje polskich znakow w logach.
+# Ustawienie UTF-8 zapobiega UnicodeEncodeError przy starcie.
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from dotenv import load_dotenv
 from flask import Flask, redirect, render_template, request, Response, session, url_for
@@ -219,10 +227,10 @@ def status(job_id: str):
 
 if __name__ == "__main__":
     print("=" * 50)
-    print("  OtoMoto → Autoplac.pl")
-    print("  Otwórz: http://localhost:5000")
+    print("  OtoMoto -> Autoplac.pl")
+    print("  Otworz: http://localhost:5000")
     if not autoplac_poster.session_exists():
-        print("  UWAGA: Nie masz jeszcze sesji Autoplac.pl")
-        print("  Przejdź do: http://localhost:5000/setup")
+        print("  UWAGA: Brak sesji Autoplac.pl")
+        print("  Przejdz do: http://localhost:5000/setup")
     print("=" * 50)
     app.run(debug=False, host="127.0.0.1", port=5000)
