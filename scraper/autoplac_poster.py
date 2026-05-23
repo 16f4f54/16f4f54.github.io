@@ -296,7 +296,6 @@ def save_session(progress_callback: Optional[Callable[[str], None]] = None) -> d
             if logged_in:
                 break
 
-        global _save_event
         _save_event = None
 
         if not logged_in:
