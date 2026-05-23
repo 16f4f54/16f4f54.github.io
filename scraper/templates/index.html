@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}OtoMoto → Autoplac – Krok 1{% endblock %}
+
+{% block content %}
+<div class="step-bar">
+  <div class="step active">1. Wklej link</div>
+  <div class="step">2. Sprawdź dane</div>
+  <div class="step">3. Wyślij</div>
+</div>
+
+<div class="card">
+  <h2>Wklej link do ogłoszenia z OtoMoto</h2>
+
+  {% if error %}
+  <div class="alert alert-error">{{ error }}</div>
+  {% endif %}
+
+  <div class="alert alert-info">
+    Wklej link do ogłoszenia, np.:<br>
+    <code>https://www.otomoto.pl/osobowe/oferta/ford-focus-1-6-tdci-ID12345678.html</code>
+  </div>
+
+  <form method="POST" action="/scrape">
+    <div class="field-group" style="display:flex; gap:0.8rem; align-items:flex-end;">
+      <div style="flex:1;">
+        <label for="url">Link OtoMoto</label>
+        <input type="url" id="url" name="url" required
+               placeholder="https://www.otomoto.pl/osobowe/oferta/..."
+               style="font-size:0.9rem;">
+      </div>
+      <button type="submit" class="btn btn-primary" style="white-space:nowrap;">
+        Pobierz dane →
+      </button>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="background:#fafafa; border:1px dashed #ddd; box-shadow:none;">
+  <h2 style="color:#888;">Jak to działa?</h2>
+  <ol style="padding-left:1.2rem; line-height:2; font-size:0.9rem; color:#555;">
+    <li>Wklejasz link do ogłoszenia z OtoMoto</li>
+    <li>Skrypt automatycznie pobiera: dane techniczne, opis i zdjęcia</li>
+    <li>Sprawdzasz i ewentualnie edytujesz dane</li>
+    <li>Podajesz hasło do Autoplac.pl i klikasz "Wyślij"</li>
+    <li>Ogłoszenie pojawia się na Autoplac.pl</li>
+  </ol>
+</div>
+{% endblock %}

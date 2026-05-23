@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}OtoMoto → Autoplac – Wysyłanie…{% endblock %}
+
+{% block head %}
+<style>
+  .log-box {
+    background: #1a1a2e;
+    color: #a8d8a8;
+    font-family: monospace;
+    font-size: 0.88rem;
+    padding: 1.2rem;
+    border-radius: 8px;
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
+  .spinner {
+    display: inline-block;
+    width: 1.2rem; height: 1.2rem;
+    border: 3px solid #ddd;
+    border-top-color: #e94560;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 0.5rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #status-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="step-bar">
+  <div class="step done">1. Wklej link</div>
+  <div class="step done">2. Sprawdź dane</div>
+  <div class="step active">3. Wysyłanie</div>
+</div>
+
+<div class="card" style="text-align:center;">
+  <div id="status-icon">⏳</div>
+  <h2 id="status-text">
+    <span class="spinner" id="spinner"></span>
+    Trwa wystawianie ogłoszenia na Autoplac.pl…
+  </h2>
+  <p style="font-size:0.85rem; color:#888; margin-top:0.5rem;">
+    Nie zamykaj okna – przeglądarka automatycznie wypełnia formularz.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Log postępu</h2>
+  <div class="log-box" id="log"></div>
+</div>
+
+<div id="result-box" style="display:none;"></div>
+
+<script>
+  const jobId = {{ job_id | tojson }};
+  const logEl = document.getElementById('log');
+  const statusEl = document.getElementById('status-text');
+  const iconEl = document.getElementById('status-icon');
+  const spinnerEl = document.getElementById('spinner');
+  const resultBox = document.getElementById('result-box');
+
+  let lastLogCount = 0;
+
+  function poll() {
+    fetch('/status/' + jobId)
+      .then(r => r.json())
+      .then(data => {
+        // Dopisz nowe linie logów
+        const newLogs = data.logs.slice(lastLogCount);
+        if (newLogs.length) {
+          logEl.textContent += newLogs.join('\n') + '\n';
+          lastLogCount = data.logs.length;
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        if (data.status === 'done' && data.result) {
+          spinnerEl.style.display = 'none';
+          const r = data.result;
+          if (r.success) {
+            iconEl.textContent = '✅';
+            statusEl.textContent = 'Ogłoszenie wystawione pomyślnie!';
+            resultBox.style.display = 'block';
+            resultBox.innerHTML = `
+              <div class="card" style="border-left:4px solid #27ae60;">
+                <h2 style="color:#27ae60;">Sukces!</h2>
+                <p style="margin-top:0.5rem;">${r.message}</p>
+                ${r.url ? `<p style="margin-top:0.5rem;"><a href="${r.url}" target="_blank" class="btn btn-primary" style="margin-top:0.8rem;">Otwórz ogłoszenie →</a></p>` : ''}
+                <a href="/" class="btn btn-secondary" style="margin-top:0.8rem;">Dodaj kolejne</a>
+              </div>`;
+          } else {
+            iconEl.textContent = '❌';
+            statusEl.textContent = 'Wystąpił problem';
+            resultBox.style.display = 'block';
+            resultBox.innerHTML = `
+              <div class="card" style="border-left:4px solid #e74c3c;">
+                <h2 style="color:#e74c3c;">Problem</h2>
+                <p style="margin-top:0.5rem; white-space:pre-wrap;">${r.message}</p>
+                <a href="javascript:history.back()" class="btn btn-secondary" style="margin-top:1rem;">← Wróć i spróbuj ponownie</a>
+              </div>`;
+          }
+        } else {
+          setTimeout(poll, 2000);
+        }
+      })
+      .catch(() => setTimeout(poll, 3000));
+  }
+
+  poll();
+</script>
+{% endblock %}

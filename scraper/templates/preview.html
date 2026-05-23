@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}OtoMoto → Autoplac – Krok 2: Sprawdź dane{% endblock %}
+
+{% block content %}
+<div class="step-bar">
+  <div class="step done">1. Wklej link</div>
+  <div class="step active">2. Sprawdź dane</div>
+  <div class="step">3. Wyślij</div>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<form method="POST" action="/post/{{ listing_id }}">
+  <!-- ── Dane ogłoszenia ─────────────────────────────────── -->
+  <div class="card">
+    <h2>Dane ogłoszenia</h2>
+    <p style="font-size:0.82rem; color:#888; margin-bottom:1rem;">
+      Sprawdź dane pobrane z OtoMoto. Możesz je edytować przed wysłaniem.
+    </p>
+
+    <div class="field-group">
+      <label for="title">Tytuł ogłoszenia</label>
+      <input type="text" id="title" name="title" value="{{ form.title }}" required>
+    </div>
+
+    <div class="grid-3">
+      <div class="field-group">
+        <label for="make">Marka</label>
+        <input type="text" id="make" name="make" value="{{ form.make }}">
+      </div>
+      <div class="field-group">
+        <label for="model">Model</label>
+        <input type="text" id="model" name="model" value="{{ form.model }}">
+      </div>
+      <div class="field-group">
+        <label for="version">Wersja</label>
+        <input type="text" id="version" name="version" value="{{ form.version }}">
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="field-group">
+        <label for="year">Rok produkcji</label>
+        <input type="text" id="year" name="year" value="{{ form.year }}">
+      </div>
+      <div class="field-group">
+        <label for="mileage">Przebieg (km)</label>
+        <input type="text" id="mileage" name="mileage" value="{{ form.mileage }}">
+      </div>
+      <div class="field-group">
+        <label for="condition">Stan</label>
+        <input type="text" id="condition" name="condition" value="{{ form.condition }}">
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="field-group">
+        <label for="engine_capacity">Pojemność silnika (cm³)</label>
+        <input type="text" id="engine_capacity" name="engine_capacity" value="{{ form.engine_capacity }}">
+      </div>
+      <div class="field-group">
+        <label for="engine_power">Moc silnika (KM)</label>
+        <input type="text" id="engine_power" name="engine_power" value="{{ form.engine_power }}">
+      </div>
+      <div class="field-group">
+        <label for="fuel_type">Rodzaj paliwa</label>
+        <input type="text" id="fuel_type" name="fuel_type" value="{{ form.fuel_type }}">
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="field-group">
+        <label for="gearbox">Skrzynia biegów</label>
+        <input type="text" id="gearbox" name="gearbox" value="{{ form.gearbox }}">
+      </div>
+      <div class="field-group">
+        <label for="body_type">Typ nadwozia</label>
+        <input type="text" id="body_type" name="body_type" value="{{ form.body_type }}">
+      </div>
+      <div class="field-group">
+        <label for="color">Kolor</label>
+        <input type="text" id="color" name="color" value="{{ form.color }}">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="field-group">
+        <label for="price">Cena</label>
+        <input type="text" id="price" name="price" value="{{ form.price }}" required>
+      </div>
+      <div class="field-group">
+        <label for="currency">Waluta</label>
+        <input type="text" id="currency" name="currency" value="{{ form.currency }}">
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label for="description">Opis</label>
+      <textarea id="description" name="description" rows="8"
+                style="resize:vertical;">{{ form.description }}</textarea>
+    </div>
+  </div>
+
+  <!-- ── Zdjęcia ────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Zdjęcia</h2>
+    {% if photo_paths %}
+      <p style="font-size:0.9rem; color:#555; margin-bottom:0.8rem;">
+        Pobrano <strong>{{ photo_paths|length }}</strong> zdjęć – zostaną automatycznie wgrane na Autoplac.pl.
+      </p>
+      <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+        {% for path in photo_paths %}
+        <img src="/{{ path }}" alt="foto"
+             style="width:100px; height:70px; object-fit:cover; border-radius:6px; border:1px solid #ddd;">
+        {% endfor %}
+      </div>
+    {% else %}
+      <p style="color:#c0392b;">Nie pobrano żadnych zdjęć – sprawdź połączenie i spróbuj ponownie.</p>
+    {% endif %}
+  </div>
+
+  <!-- ── Dane logowania Autoplac ────────────────────────── -->
+  <div class="card">
+    <h2>Logowanie do Autoplac.pl</h2>
+    <p style="font-size:0.82rem; color:#888; margin-bottom:1rem;">
+      Hasło nie jest nigdzie zapisywane – używane tylko do jednorazowego wystawienia ogłoszenia.
+    </p>
+
+    <div class="grid-2">
+      <div class="field-group">
+        <label for="autoplac_email">E-mail (Autoplac.pl)</label>
+        <input type="email" id="autoplac_email" name="autoplac_email"
+               value="{{ autoplac_email }}" required autocomplete="username">
+      </div>
+      <div class="field-group">
+        <label for="autoplac_password">Hasło (Autoplac.pl)</label>
+        <input type="password" id="autoplac_password" name="autoplac_password"
+               required autocomplete="current-password">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Przyciski ──────────────────────────────────────── -->
+  <div style="display:flex; gap:1rem; justify-content:flex-end; margin-bottom:2rem;">
+    <a href="/" class="btn btn-secondary">← Wróć</a>
+    <button type="submit" class="btn btn-primary">Wyślij na Autoplac.pl →</button>
+  </div>
+</form>
+{% endblock %}
